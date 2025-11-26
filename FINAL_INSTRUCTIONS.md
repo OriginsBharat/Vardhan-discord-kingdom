@@ -26,6 +26,7 @@ Before you begin, you must have the core AI engines installed and running on you
 
 3.  **XTTSv2 (The Voice)**:
     *   Ensure you have a working XTTSv2 setup. This project will interact with it as a local server.
+    *   **Crucially, you must prepare a `.wav` file for each of the 11 characters to be used for voice cloning.** Name them according to the character (e.g., `Maya.wav`, `Eka.wav`) and place them in the directory your XTTSv2 server uses for voice samples.
 
 ## The Genesis Ritual
 

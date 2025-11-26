@@ -28,10 +28,21 @@ class SetupWizard(customtkinter.CTk):
         self.secrets_frame.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
         self.secrets_frame.grid_columnconfigure(1, weight=1)
 
-        self.discord_token_label = customtkinter.CTkLabel(self.secrets_frame, text="Discord Bot Token(s):")
-        self.discord_token_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        self.discord_token_entry = customtkinter.CTkEntry(self.secrets_frame, placeholder_text="Enter 11 tokens, comma-separated, in order: Maya, Eka, Dvi, Tri, Chatur, Panch, Shash, Sapt, Asht, Nav, Dash")
-        self.discord_token_entry.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        # Create a scrollable frame for the tokens
+        self.token_frame = customtkinter.CTkScrollableFrame(self.secrets_frame, label_text="Discord Bot Tokens")
+        self.token_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        self.token_frame.grid_columnconfigure(1, weight=1)
+
+        self.token_entries = {}
+        with open("data/character_canon.json", "r", encoding="utf-8") as f:
+            character_names = list(json.load(f).keys())
+
+        for i, name in enumerate(character_names):
+            label = customtkinter.CTkLabel(self.token_frame, text=f"{name}'s Token:")
+            label.grid(row=i, column=0, padx=5, pady=2, sticky="w")
+            entry = customtkinter.CTkEntry(self.token_frame, show="*")
+            entry.grid(row=i, column=1, padx=5, pady=2, sticky="ew")
+            self.token_entries[name] = entry
 
         self.pinecone_key_label = customtkinter.CTkLabel(self.secrets_frame, text="Pinecone API Key:")
         self.pinecone_key_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
@@ -112,9 +123,10 @@ class SetupWizard(customtkinter.CTk):
         self.status_label.configure(text="Beginning setup... This may take a moment.")
         self.update_idletasks()
 
+        tokens = {name: entry.get() for name, entry in self.token_entries.items()}
+
         # 1. Validate Inputs
-        if not all([
-            self.discord_token_entry.get(),
+        if not all(tokens.values()) or not all([
             self.pinecone_key_entry.get(),
             self.pinecone_env_entry.get(),
             self.master_user_id_entry.get(),
@@ -126,22 +138,12 @@ class SetupWizard(customtkinter.CTk):
             self.status_label.configure(text="Error: Missing required fields.")
             return
 
-        tokens = self.discord_token_entry.get().split(',')
-        if len(tokens) != 11:
-            messagebox.showerror("Error", "Please provide exactly 11 comma-separated Discord bot tokens.")
-            self.status_label.configure(text="Error: Invalid number of tokens.")
-            return
-
         # 2. Create .env file
         self.status_label.configure(text="Creating .env file...")
         self.update_idletasks()
         with open(".env", "w", encoding="utf-8") as f:
-            # Assign tokens to characters based on the order in character_canon.json
-            with open("data/character_canon.json", "r", encoding="utf-8") as cf:
-                character_names = list(json.load(cf).keys())
-
-            for i, char_name in enumerate(character_names):
-                f.write(f"{char_name.upper()}_TOKEN={tokens[i].strip()}\n")
+            for name, token in tokens.items():
+                f.write(f"{name.upper()}_TOKEN={token}\n")
 
             f.write(f"PINECONE_API_KEY={self.pinecone_key_entry.get()}\n")
             f.write(f"PINECONE_ENVIRONMENT={self.pinecone_env_entry.get()}\n")
@@ -162,22 +164,35 @@ class SetupWizard(customtkinter.CTk):
         self.update_idletasks()
         start_world_content = f"""
 @echo off
+REM Get the directory of the batch script
+set "BATCH_DIR=%~dp0"
+
 REM Start AI Servers in the background
 echo "Starting Ollama..."
+rem Ollama is often a single executable, so we can start it directly
 start "Ollama" /B "{self.ollama_path_entry.get()}"
 
 echo "Starting ComfyUI..."
-start "ComfyUI" /B cmd /c "{self.comfyui_path_entry.get()}"
+set "COMFYUI_PATH={self.comfyui_path_entry.get()}"
+set "COMFYUI_DIR=%COMFYUI_PATH%\\.."
+cd /d "%COMFYUI_DIR%"
+start "ComfyUI" /B cmd /c "%COMFYUI_PATH%"
 
 echo "Starting XTTSv2..."
-start "XTTSv2" /B cmd /c "{self.xtts_path_entry.get()}"
+set "XTTS_PATH={self.xtts_path_entry.get()}"
+set "XTTS_DIR=%XTTS_PATH%\\.."
+cd /d "%XTTS_DIR%"
+start "XTTSv2" /B cmd /c "%XTTS_PATH%"
 
+REM Return to the original directory and add a delay
+cd /d "%BATCH_DIR%"
 REM Add a delay to allow servers to initialize
 timeout /t 30
 
 REM Start the main bot application
 echo "Starting My AI World..."
-start "MyAIWorld" /B python src/main.py
+set "MAIN_PY_PATH=%BATCH_DIR%src\\main.py"
+start "MyAIWorld" /B python "%MAIN_PY_PATH%"
 """
         with open("start_world.bat", "w", encoding="utf-8") as f:
             f.write(start_world_content)

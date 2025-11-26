@@ -17,6 +17,8 @@ class Persona:
             "submissiveness": 50,
         }
         self.power_level = 50  # Default power level, can be adjusted in canon if needed
+        self.neediness_threshold = 75 # Default threshold, can be overridden
+        self.schedule_state = "awake" # awake, working, sleeping
 
 class PersonaManager:
     def __init__(self):
