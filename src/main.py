@@ -11,13 +11,6 @@ from src.core.bot_manager import bot_manager
 # Event to signal that all bots are ready
 all_bots_ready = asyncio.Event()
 
-async def create_server_structure(guild):
-    # ... (function remains the same)
-    print(f"Entering World Architect Mode for server: {guild.name}")
-    # ... (rest of the function)
-    with open("data/world_created.flag", "w") as f:
-        f.write("True")
-
 async def run_bot(bot_token, persona_name):
     bot = MyAIWorldBot(persona_name)
 

@@ -1,7 +1,8 @@
-discord.py
+discord.py>=2.3.0
 python-dotenv
-pinecone-client
+pinecone-client>=3.0.0
 customtkinter
 Pillow
 requests
 websocket-client
+aiosqlite

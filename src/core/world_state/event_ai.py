@@ -1,3 +1,4 @@
+import discord
 import random
 from src.ai_services.ollama_client import ollama_client
 
@@ -6,7 +7,18 @@ class EventAI:
         self.bot_manager = bot_manager
         self.announcement_channel_name = "announcements"
         self.event_types = [
-            # ... (event types as before)
+            {
+                "name": "Economic Boom",
+                "prompt": "Generate an announcement for a sudden economic boom. A rare resource has been discovered, causing a specific industry (like alchemy or blacksmithing) to become highly profitable for a short time. Mention the resource and the industry."
+            },
+            {
+                "name": "Grand Festival",
+                "prompt": "Generate an announcement for a grand festival in the Master's honor. Describe the planned events, such as a grand feast, a tournament in the Coliseum, and a fireworks display."
+            },
+            {
+                "name": "Whisper of Madness",
+                "prompt": "Generate a subtle, ominous announcement. A strange, maddening whisper is spreading through the city, causing paranoia and distrust. The announcement should be phrased as a public safety warning, but with a hint of something supernatural and terrifying."
+            }
         ]
         print("EventAI (The Director) initialized.")
 
@@ -41,18 +53,4 @@ class EventAI:
         except Exception as e:
             print(f"Failed to announce event: {e}")
 
-# Re-add the event types
-EventAI.event_types = [
-    {
-        "name": "Economic Boom",
-        "prompt": "Generate an announcement for a sudden economic boom. A rare resource has been discovered, causing a specific industry (like alchemy or blacksmithing) to become highly profitable for a short time. Mention the resource and the industry."
-    },
-    {
-        "name": "Grand Festival",
-        "prompt": "Generate an announcement for a grand festival in the Master's honor. Describe the planned events, such as a grand feast, a tournament in the Coliseum, and a fireworks display."
-    },
-    {
-        "name": "Whisper of Madness",
-        "prompt": "Generate a subtle, ominous announcement. A strange, maddening whisper is spreading through the city, causing paranoia and distrust. The announcement should be phrased as a public safety warning, but with a hint of something supernatural and terrifying."
-    }
-]
+# The event types are now defined within the __init__ method.

@@ -169,20 +169,20 @@ set "BATCH_DIR=%~dp0"
 
 REM Start AI Servers in the background
 echo "Starting Ollama..."
-rem Ollama is often a single executable, so we can start it directly
-start "Ollama" /B "{self.ollama_path_entry.get()}"
+rem Use "" for the title to handle spaces in paths
+start "" /B "{self.ollama_path_entry.get()}"
 
 echo "Starting ComfyUI..."
 set "COMFYUI_PATH={self.comfyui_path_entry.get()}"
 set "COMFYUI_DIR=%COMFYUI_PATH%\\.."
 cd /d "%COMFYUI_DIR%"
-start "ComfyUI" /B cmd /c "%COMFYUI_PATH%"
+start "" /B cmd /c ""%COMFYUI_PATH%""
 
 echo "Starting XTTSv2..."
 set "XTTS_PATH={self.xtts_path_entry.get()}"
 set "XTTS_DIR=%XTTS_PATH%\\.."
 cd /d "%XTTS_DIR%"
-start "XTTSv2" /B cmd /c "%XTTS_PATH%"
+start "" /B cmd /c ""%XTTS_PATH%""
 
 REM Return to the original directory and add a delay
 cd /d "%BATCH_DIR%"
@@ -198,11 +198,12 @@ start "MyAIWorld" /B python "%MAIN_PY_PATH%"
             f.write(start_world_content)
 
         # 6. Create invisible_launcher.vbs
-        vbs_content = f"""
+        vbs_content = f'''
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "cmd /c start_world.bat", 0
+WshShell.CurrentDirectory = "{os.path.abspath(os.getcwd())}"
+WshShell.Run "cmd /c ""{os.path.abspath('start_world.bat')}""", 0
 Set WshShell = Nothing
-"""
+'''
         with open("invisible_launcher.vbs", "w", encoding="utf-8") as f:
             f.write(vbs_content)
 

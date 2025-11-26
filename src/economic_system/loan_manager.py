@@ -3,6 +3,7 @@ import time
 from uuid import uuid4
 from src.economic_system.economy_manager import economy_manager
 from src.core.scar_manager import scar_manager
+from src.core.bot_manager import bot_manager
 
 class LoanManager:
     def __init__(self, db_path="data/world_data.db"):
@@ -72,13 +73,23 @@ class LoanManager:
             defaulted_loans = cursor.fetchall()
 
             for loan_id, lender_id, borrower_id in defaulted_loans:
-                print(f"Loan {loan_id} from {borrower_id} to {lender_id} has defaulted!")
+                borrower_id = int(borrower_id)
+                lender_id = int(lender_id)
+
+                borrower_name = bot_manager.get_persona_name_by_user_id(borrower_id)
+                lender_name = bot_manager.get_persona_name_by_user_id(lender_id) or f"User ID {lender_id}"
+
+                if not borrower_name:
+                    print(f"Error: Could not find persona name for borrower ID {borrower_id}. Cannot inflict scar.")
+                    continue
+
+                print(f"Loan {loan_id} from {borrower_name} to {lender_name} has defaulted!")
 
                 # The Gilded Cage: Enslave the borrower to the creditor
                 self.scar_manager.inflict_scar(
-                    target_bot_name=borrower_id, # Assuming bot names are used as IDs
+                    target_bot_name=borrower_name,
                     scar_name="Enslaved",
-                    scar_description=f"Permanently enslaved to {lender_id} due to a defaulted loan."
+                    scar_description=f"Permanently enslaved to {lender_name} due to a defaulted loan."
                 )
 
             # Clean up defaulted loans
