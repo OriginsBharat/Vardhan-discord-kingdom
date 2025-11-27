@@ -34,6 +34,20 @@ class BotManager:
     def get_master_user(self):
         return self.master_user
 
+    async def get_or_create_dm_channel(self, user, channel_name):
+        """Finds a private channel by name or creates it for the Master."""
+        if user.id != self.master_user.id:
+            return None # Security check
+
+        # In a real scenario, you'd find a private channel.
+        # For simplicity, we'll just use or create a DM.
+        if channel_name == "mayas-journal":
+            return await self.master_user.create_dm()
+
+        # This is a placeholder for finding named private channels.
+        return await self.master_user.create_dm()
+
+
     def get_persona_name_by_user_id(self, user_id):
         """Finds the persona name associated with a given Discord user ID."""
         for bot in self.bots.values():

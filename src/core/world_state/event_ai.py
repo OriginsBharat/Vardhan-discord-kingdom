@@ -42,7 +42,7 @@ class EventAI:
         print("The Director is triggering a new world event...")
         event = random.choice(self.event_types)
 
-        announcement_text = ollama_client.generate_text(
+        announcement_text = await ollama_client.generate_text(
             persona_prompt="You are The Director, an omniscient narrator. Announce the following event to the world with a tone of grandiosity and mystery.",
             user_prompt=event["prompt"]
         )

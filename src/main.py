@@ -1,6 +1,7 @@
 import asyncio
 import discord
 import os
+import signal
 from src.bot import MyAIWorldBot
 from src.config import config
 from src.core.world_state.scheduler import Scheduler
@@ -38,17 +39,28 @@ async def run_bot(bot_token, persona_name):
 
 
 async def main():
-    # Run the offline simulation first
     simulation = Simulation(economy_manager)
     simulation.run_offline_progression()
 
-    # Start all bots in the background
+    scheduler = None # Initialize scheduler as None
+
+    def handle_shutdown(signum, frame):
+        print("Shutting down gracefully...")
+        if scheduler:
+            scheduler.stop()
+        simulation.save_current_timestamp()
+
+        # Close all bot connections
+        for bot in bot_manager.bots.values():
+            asyncio.create_task(bot.close())
+
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+
     tasks = []
     for bot_name, token in config.discord_tokens.items():
         if token:
             tasks.append(asyncio.create_task(run_bot(token, bot_name)))
-        else:
-            print(f"Warning: No token found for {bot_name}.")
 
     if not tasks:
         print("Error: No bot tokens found. The world cannot awaken.")
@@ -58,21 +70,16 @@ async def main():
     await all_bots_ready.wait()
     print("All bots are ready. Initializing core systems.")
 
-    # Now that all bots are ready and registered, initialize post-setup managers
     await bot_manager.initialize_master_user()
 
-    # Start the scheduler
     scheduler = Scheduler(bot_manager)
     scheduler.start()
 
     print("--- My AI World is now fully operational. ---")
-
-    # Keep the main function alive to keep the bots running
     await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
-    # The full, unchanged create_server_structure function needs to be here
     async def create_server_structure(guild):
         print(f"Entering World Architect Mode for server: {guild.name}")
         for channel in await guild.fetch_channels(): await channel.delete()
@@ -118,5 +125,5 @@ if __name__ == "__main__":
 
     try:
         asyncio.run(main())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         print("The world is shutting down...")

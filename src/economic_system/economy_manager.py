@@ -19,6 +19,17 @@ class EconomyManager:
                     balance REAL NOT NULL
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS market_data (
+                    item_type TEXT PRIMARY KEY,
+                    transactions_last_cycle INTEGER NOT NULL,
+                    base_price REAL NOT NULL
+                )
+            """)
+            # Initialize some basic item types
+            cursor.execute("INSERT OR IGNORE INTO market_data (item_type, transactions_last_cycle, base_price) VALUES ('artwork', 0, 500)")
+            cursor.execute("INSERT OR IGNORE INTO market_data (item_type, transactions_last_cycle, base_price) VALUES ('healing_potion', 0, 50)")
+            cursor.execute("INSERT OR IGNORE INTO market_data (item_type, transactions_last_cycle, base_price) VALUES ('custom_weapon', 0, 1500)")
             conn.commit()
 
     def get_balance(self, user_id):
@@ -80,5 +91,44 @@ class EconomyManager:
                 conn.rollback()
                 print(f"Transaction failed: {e}")
                 return False
+
+    def get_market_price(self, item_type):
+        """Calculates the current market price of an item based on recent transactions."""
+        with self._get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT transactions_last_cycle, base_price FROM market_data WHERE item_type=?", (item_type,))
+            result = cursor.fetchone()
+            if not result:
+                return 100 # Default price for unknown items
+
+            transactions, base_price = result
+
+            # Simple supply/demand logic: price decreases as more items are sold
+            # A transaction count of 0-5 is "scarce", > 20 is "saturated"
+            demand_multiplier = 1.0
+            if transactions > 20:
+                demand_multiplier = 0.7 # Saturated market, price drops
+            elif transactions > 10:
+                demand_multiplier = 0.9 # Well-supplied
+            elif transactions <= 5:
+                demand_multiplier = 1.2 # Scarce, price increases
+
+            return int(base_price * demand_multiplier)
+
+    def record_transaction(self, item_type):
+        """Records that a transaction for a given item type has occurred."""
+        with self._get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE market_data SET transactions_last_cycle = transactions_last_cycle + 1 WHERE item_type=?", (item_type,))
+            conn.commit()
+
+    def reset_market_cycles(self):
+        """Resets the transaction counters for a new cycle (e.g., daily)."""
+        with self._get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE market_data SET transactions_last_cycle = 0")
+            conn.commit()
+        print("Market transaction cycles have been reset.")
+
 
 economy_manager = EconomyManager()

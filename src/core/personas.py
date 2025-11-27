@@ -1,5 +1,6 @@
 import json
 from src.config import config
+from src.core.scar_manager import scar_manager
 
 class Persona:
     def __init__(self, name, description, base_persona, aura_color, voice, kinks):
@@ -31,7 +32,7 @@ class PersonaManager:
 
         for name, data in character_canon.items():
             kinks = config.character_kinks.get(name, "")
-            self.personas[name] = Persona(
+            persona = Persona(
                 name=name,
                 description=data["description"],
                 base_persona=data["base_persona"],
@@ -39,6 +40,13 @@ class PersonaManager:
                 voice=data["voice"],
                 kinks=kinks
             )
+
+            # Load and apply persistent scars
+            scars = scar_manager.get_scars_for_bot(name)
+            for scar in scars:
+                scar_manager.apply_scar_to_persona(persona, scar["name"], scar["description"])
+
+            self.personas[name] = persona
 
     def get_persona(self, name):
         return self.personas.get(name)
