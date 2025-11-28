@@ -24,9 +24,14 @@ Before you begin, you must have the core AI engines installed and running on you
     *   Download the `sd_xl_base_1.0.safetensors` model and place it in the `ComfyUI/models/checkpoints` directory.
     *   Ensure the ComfyUI server is running.
 
-3.  **XTTSv2 (The Voice)**:
+3.  **FFmpeg (The Voice's Foundation)**:
+    *   The world's new voice features require a system utility called `ffmpeg`.
+    *   **Installation:** Go to the official FFmpeg website (`ffmpeg.org`), download the latest build for Windows, and unzip it.
+    *   **Crucially, you must add the `bin` folder from inside the unzipped folder to your Windows System PATH.** This allows the application to use `ffmpeg` from any location. A simple search for "How to add to PATH on Windows" will provide many guides. This is a one-time setup.
+
+4.  **XTTSv2 (The Voice)**:
     *   Ensure you have a working XTTSv2 setup. This project will interact with it as a local server.
-    *   **Crucially, you must prepare a `.wav` file for each of the 11 characters to be used for voice cloning.** Name them according to the character (e.g., `Maya.wav`, `Eka.wav`) and place them in the directory your XTTSv2 server uses for voice samples.
+    *   You no longer need to prepare `.wav` files manually. During the graphical setup, you will provide a YouTube URL for each character. The setup wizard will automatically download and extract the audio to be used for voice cloning.
 
 ## The Genesis Ritual
 

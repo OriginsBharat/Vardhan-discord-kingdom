@@ -46,7 +46,6 @@ class BotSocialSystem(commands.Cog):
             channel = discord.utils.get(guild.channels, name="sfw-chat")
             if channel:
                 await channel.send(interaction_text)
-                # In a future step, this could trigger a response from the target bot
                 break
 
     def choose_interaction_target(self, my_name, other_bots):
@@ -74,6 +73,50 @@ class BotSocialSystem(commands.Cog):
             return f"You dislike {target_bot_name}. Make a slightly competitive or dismissive comment towards them in a shared space. Your response should be a single action or line of dialogue."
         else: # Neutral
             return f"You are neutral towards {target_bot_name}. Make a simple, neutral observation or greeting towards them in a shared space. Your response should be a single action or line of dialogue."
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        # Ignore messages from self or non-bots (except for other bots in our system)
+        if message.author == self.bot.user or not message.author.bot:
+            return
+
+        # Check if this bot was mentioned
+        if not self.bot.user.mentioned_in(message):
+            return
+
+        # 25% chance to even bother replying, to prevent spam
+        if random.random() > 0.25:
+            return
+
+        # Small delay to simulate "thinking"
+        await asyncio.sleep(random.uniform(1.5, 3.0))
+
+        my_name = self.bot.persona.name
+        author_name = message.author.name # In our setup, the bot's display name is its persona name
+
+        score = relationship_manager.get_relationship_score(my_name, author_name)
+
+        # Generate a reply using the LLM
+        prompt = self.generate_reply_prompt(my_name, author_name, score, message.content)
+
+        from src.ai_services.ollama_client import ollama_client
+        reply_text = await ollama_client.generate_text(self.bot.persona.base_prompt, prompt)
+
+        await message.channel.send(reply_text)
+
+    def generate_reply_prompt(self, my_name, author_name, score, message_content):
+        """Generates a prompt for the LLM to create a reply."""
+        context = f"You are in a public channel. {author_name}, who you have a relationship score of {score} with, just said to you: '{message_content}'. How do you reply in a single line?"
+        if score > 50:
+            return f"{context} You feel very warmly towards them."
+        elif score > 10:
+            return f"{context} You feel friendly towards them."
+        elif score < -50:
+            return f"{context} You strongly dislike them. Be passive-aggressive or dismissive."
+        elif score < -10:
+            return f"{context} You dislike them. Be a little sharp or competitive in your reply."
+        else:
+            return f"{context} Keep it neutral and simple."
 
     @social_interactions.before_loop
     async def before_social(self):

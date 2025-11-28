@@ -26,7 +26,7 @@ class Scheduler:
             print(f"[Scheduler] Heartbeat: Minute {minute_counter}")
 
             # Every Minute: Check personal schedules
-            # self.check_schedules() # Placeholder for now
+            self.check_schedules()
 
             # Every 5 Minutes: Check neediness levels
             if minute_counter % 5 == 0:
@@ -188,6 +188,30 @@ class Scheduler:
                 await dm_channel.send(embed=embed)
         except Exception as e:
             print(f"Error sending journal entry: {e}")
+
+    def check_schedules(self):
+        """Updates each bot's state based on the current time."""
+        current_hour = datetime.now().hour
+        for persona in persona_manager.personas.values():
+            schedule = persona.schedule
+            new_state = "awake" # Default state
+
+            # Check for sleeping hours (e.g., 22:00 to 06:00)
+            if schedule["sleep_start"] > schedule["wake_start"]: # Overnight schedule
+                if current_hour >= schedule["sleep_start"] or current_hour < schedule["wake_start"]:
+                    new_state = "sleeping"
+            else: # Same-day schedule
+                if schedule["sleep_start"] <= current_hour < schedule["wake_start"]:
+                    new_state = "sleeping"
+
+            # Check for working hours if not sleeping
+            if new_state != "sleeping":
+                if schedule["work_start"] <= current_hour < schedule["work_end"]:
+                    new_state = "working"
+
+            if persona.schedule_state != new_state:
+                persona.schedule_state = new_state
+                print(f"[{persona.name}] has changed state to: {new_state}")
 
     def stop(self):
         self.running = False

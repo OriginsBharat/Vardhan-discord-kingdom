@@ -4,6 +4,8 @@ import os
 import subprocess
 import json
 import sys
+import threading
+from pytube import YouTube
 
 class SetupWizard(customtkinter.CTk):
     def __init__(self):
@@ -16,12 +18,12 @@ class SetupWizard(customtkinter.CTk):
         customtkinter.set_default_color_theme("blue")
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1) # Allow kinks_frame to expand
+        self.grid_rowconfigure(3, weight=1) # Allow kinks_frame to expand
 
         self.main_frame = customtkinter.CTkFrame(self)
         self.main_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(2, weight=1)
+        self.main_frame.grid_rowconfigure(3, weight=1)
 
         # Secrets
         self.secrets_frame = customtkinter.CTkFrame(self.main_frame)
@@ -85,9 +87,24 @@ class SetupWizard(customtkinter.CTk):
         self.xtts_browse_button = customtkinter.CTkButton(self.paths_frame, text="Browse", command=lambda: self.browse_file(self.xtts_path_entry))
         self.xtts_browse_button.grid(row=2, column=2, padx=10, pady=5)
 
+        # Voice URLs
+        self.voice_frame = customtkinter.CTkScrollableFrame(self.main_frame, label_text="Character Voice URLs (YouTube)")
+        self.voice_frame.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        self.voice_frame.grid_columnconfigure(1, weight=1)
+
+        self.character_voices = {}
+        with open("data/character_canon.json", "r", encoding="utf-8") as f:
+            characters = json.load(f)
+            for i, char_name in enumerate(characters.keys()):
+                label = customtkinter.CTkLabel(self.voice_frame, text=f"{char_name}:")
+                label.grid(row=i, column=0, padx=10, pady=5, sticky="w")
+                entry = customtkinter.CTkEntry(self.voice_frame, placeholder_text=f"YouTube URL for {char_name}'s voice")
+                entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
+                self.character_voices[char_name] = entry
+
         # Kink Profiles
         self.kinks_frame = customtkinter.CTkScrollableFrame(self.main_frame, label_text="Character Kink Profiles")
-        self.kinks_frame.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
+        self.kinks_frame.grid(row=3, column=0, padx=20, pady=10, sticky="nsew")
         self.kinks_frame.grid_columnconfigure(1, weight=1)
 
         self.character_kinks = {}
@@ -102,10 +119,10 @@ class SetupWizard(customtkinter.CTk):
 
         # Setup Button
         self.setup_button = customtkinter.CTkButton(self.main_frame, text="Begin World Setup", command=self.begin_setup)
-        self.setup_button.grid(row=3, column=0, padx=20, pady=20)
+        self.setup_button.grid(row=4, column=0, padx=20, pady=20)
 
         self.status_label = customtkinter.CTkLabel(self.main_frame, text="")
-        self.status_label.grid(row=4, column=0, padx=20, pady=10)
+        self.status_label.grid(row=5, column=0, padx=20, pady=10)
 
     def browse_file(self, entry):
         file_path = filedialog.askopenfilename()
@@ -120,6 +137,45 @@ class SetupWizard(customtkinter.CTk):
             entry.insert(0, folder_path)
 
     def begin_setup(self):
+        self.setup_button.configure(state="disabled")
+        self.status_label.configure(text="Beginning setup...")
+
+        # Run setup in a separate thread to keep the GUI responsive
+        threading.Thread(target=self._run_setup_logic, daemon=True).start()
+
+    def download_and_prepare_voices(self):
+        """Downloads audio from YouTube URLs and saves as WAV files."""
+        self.status_label.configure(text="Downloading and preparing voice samples...")
+        voices_dir = os.path.join(os.getcwd(), "data", "voices")
+        os.makedirs(voices_dir, exist_ok=True)
+
+        for char_name, entry in self.character_voices.items():
+            url = entry.get()
+            if url:
+                try:
+                    self.status_label.configure(text=f"Downloading {char_name}'s voice from YouTube...")
+                    yt = YouTube(url)
+                    audio_stream = yt.streams.filter(only_audio=True).first()
+                    downloaded_file = audio_stream.download(output_path=voices_dir)
+
+                    # Convert to WAV
+                    base, ext = os.path.splitext(downloaded_file)
+                    wav_file = os.path.join(voices_dir, f"{char_name}.wav")
+                    if os.path.exists(wav_file):
+                        os.remove(wav_file) # Overwrite existing file
+
+                    # Use ffmpeg to convert
+                    subprocess.run(['ffmpeg', '-i', downloaded_file, wav_file], check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+
+                    # Clean up original download
+                    os.remove(downloaded_file)
+                    print(f"Successfully prepared voice for {char_name} at {wav_file}")
+                except Exception as e:
+                    messagebox.showerror("Voice Download Error", f"Failed to download or process voice for {char_name} from {url}.\nError: {e}\nPlease check the URL and your internet connection.")
+                    return False
+        return True
+
+    def _run_setup_logic(self):
         self.status_label.configure(text="Beginning setup... This may take a moment.")
         self.update_idletasks()
 
@@ -128,17 +184,23 @@ class SetupWizard(customtkinter.CTk):
         # 1. Validate Inputs
         if not all(tokens.values()) or not all([
             self.pinecone_key_entry.get(),
-            self.pinecone_env_entry.get(),
             self.master_user_id_entry.get(),
             self.ollama_path_entry.get(),
             self.comfyui_path_entry.get(),
             self.xtts_path_entry.get()
-        ]):
-            messagebox.showerror("Error", "All secrets and paths must be filled.")
+        ]) or not any(entry.get() for entry in self.character_voices.values()):
+            messagebox.showerror("Error", "All secrets, paths, and at least one voice URL must be filled.")
             self.status_label.configure(text="Error: Missing required fields.")
+            self.setup_button.configure(state="normal")
             return
 
-        # 2. Create .env file
+        # 2. Download and prepare voices
+        if not self.download_and_prepare_voices():
+            self.status_label.configure(text="Setup failed during voice preparation.")
+            self.setup_button.configure(state="normal")
+            return
+
+        # 3. Create .env file
         self.status_label.configure(text="Creating .env file...")
         self.update_idletasks()
         with open(".env", "w", encoding="utf-8") as f:
@@ -146,7 +208,7 @@ class SetupWizard(customtkinter.CTk):
                 f.write(f"{name.upper()}_TOKEN={token}\n")
 
             f.write(f"PINECONE_API_KEY={self.pinecone_key_entry.get()}\n")
-            f.write(f"PINECONE_ENVIRONMENT={self.pinecone_env_entry.get()}\n")
+            # The v3 client doesn't strictly need the environment
             f.write(f"MASTER_USER_ID={self.master_user_id_entry.get()}\n")
             f.write(f"OLLAMA_PATH={self.ollama_path_entry.get()}\n")
             f.write(f"COMFYUI_PATH={self.comfyui_path_entry.get()}\n")

@@ -4,6 +4,7 @@ from uuid import uuid4
 from src.economic_system.economy_manager import economy_manager
 from src.core.scar_manager import scar_manager
 from src.core.bot_manager import bot_manager
+from src.core.slavery_manager import slavery_manager
 
 class LoanManager:
     def __init__(self, db_path="data/world_data.db"):
@@ -86,11 +87,14 @@ class LoanManager:
                 print(f"Loan {loan_id} from {borrower_name} to {lender_name} has defaulted!")
 
                 # The Gilded Cage: Enslave the borrower to the creditor
+                # Inflict the scar
                 self.scar_manager.inflict_scar(
                     target_bot_name=borrower_name,
                     scar_name="Enslaved",
                     scar_description=f"Permanently enslaved to {lender_name} due to a defaulted loan."
                 )
+                # Create the formal slavery record
+                slavery_manager.enslave_bot(slave_name=borrower_name, owner_id=lender_id)
 
             # Clean up defaulted loans
             if defaulted_loans:
